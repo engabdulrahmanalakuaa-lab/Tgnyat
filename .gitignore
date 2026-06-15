@@ -1,0 +1,10 @@
+# الاعتماديات
+node_modules/
+dist/
+
+# قواعد البيانات
+*.db
+
+# ملفات النظام
+.DS_Store
+Thumbs.db
