@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تقنيات سوفت - نظام إدارة المطاعم</title>
 
-    <!-- تحميل خط Tajawal محلياً -->
     <style>
         @font-face {
             font-family: 'Tajawal';
@@ -105,11 +104,9 @@
         }
     </style>
 
-    <!-- Font Awesome محلية -->
     <link rel="stylesheet" href="assets/fontawesome/css/all.min.css">
 </head>
 <body>
-    <!-- شاشة التفعيل -->
     <div id="activation-screen" style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #2c3e50; color: white;">
         <div style="background: white; color: #2c3e50; padding: 30px; border-radius: 10px; text-align: center; max-width: 400px;">
             <h2>تفعيل نظام تقنيات سوفت</h2>
@@ -120,9 +117,7 @@
         </div>
     </div>
 
-    <!-- التطبيق الرئيسي (يظهر بعد التفعيل) -->
     <div id="app-main" style="display: none; width: 100%;">
-        <!-- شاشة تسجيل الدخول المخصصة -->
         <div id="login-screen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(44,62,80,0.95); justify-content:center; align-items:center; z-index:9999; flex-direction:column;">
             <div style="background:white; padding:30px; border-radius:10px; text-align:center; min-width:300px;">
                 <h2 style="margin-bottom:20px; color:#2c3e50;">تسجيل الدخول</h2>
@@ -164,12 +159,10 @@
         <main class="main-content" id="main-content"></main>
     </div>
 
-    <!-- النافذة المنبثقة -->
     <div id="modal" class="modal">
         <div class="modal-content" id="modal-content"></div>
     </div>
 
-    <!-- لوحة المفاتيح الافتراضية -->
     <div id="virtual-keyboard" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#f0f0f0; border-top:2px solid #ccc; padding:10px; z-index:9999; direction:ltr;">
         <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
             <button class="kb-btn kb-close" onclick="hideKeyboard()" style="background:#e74c3c; color:white; border:none; padding:8px 15px; border-radius:6px; font-weight:bold;">✕ إغلاق</button>
@@ -187,13 +180,10 @@
         </div>
     </div>
 
-    <!-- إيصالات مخفية للطباعة -->
     <div id="thermal-receipt" style="display:none;"></div>
     <div id="shift-report-receipt" style="display:none;"></div>
 
-    <!-- Chart.js محلية -->
     <script src="assets/chart.js/chart.min.js"></script>
-    <script src="preload.js"></script>
     <script src="renderer.js"></script>
 </body>
 </html>
