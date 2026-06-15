@@ -1,4 +1,4 @@
-// renderer.js - تقنيات سوفت (نسخة نهائية خالية من الأخطاء)
+// renderer.js - تقنيات سوفت (نسخة نهائية خالية من الأخطاء ودون الاعتماد على prompt)
 const api = window.api;
 
 let currentUser = null;
@@ -7,7 +7,51 @@ let currentShift = null;
 let cart = [];
 let totalSalesCash = 0;
 let currentCategory = 'all';
-let cachedMaterials = []; // لحل مشكلة addRecipeRow
+let cachedMaterials = []; 
+
+// ============ دالة مساعدة لتعويض prompt المعطلة في Electron ============
+function appPrompt(message, type = 'text', defaultValue = '') {
+    return new Promise((resolve) => {
+        document.getElementById('modal-content').innerHTML = `
+            <div style="text-align: center; padding: 10px;">
+                <h3 style="margin-bottom: 20px; color: var(--text);">${message}</h3>
+                <div class="form-group">
+                    <input type="${type}" id="app-prompt-input" value="${defaultValue}" style="padding:10px; width:100%; margin-bottom:15px; text-align: center;">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary" id="app-prompt-submit" style="flex:1;">موافق</button>
+                    <button class="btn btn-secondary" id="app-prompt-cancel" style="flex:1;">إلغاء</button>
+                </div>
+            </div>
+        `;
+        document.getElementById('modal').classList.add('active');
+
+        const input = document.getElementById('app-prompt-input');
+        const submitBtn = document.getElementById('app-prompt-submit');
+        const cancelBtn = document.getElementById('app-prompt-cancel');
+
+        input.focus();
+
+        const cleanup = () => {
+            document.getElementById('modal').classList.remove('active');
+        };
+
+        submitBtn.onclick = () => {
+            cleanup();
+            resolve(input.value);
+        };
+
+        cancelBtn.onclick = () => {
+            cleanup();
+            resolve(null);
+        };
+
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') submitBtn.click();
+            if (e.key === 'Escape') cancelBtn.click();
+        };
+    });
+}
 
 // ============ بدء التشغيل ============
 window.addEventListener('DOMContentLoaded', async () => {
@@ -48,14 +92,13 @@ async function showLoginScreen() {
     let company = null;
 
     if (companies.length === 0) {
-        const name = prompt('أدخل اسم المطعم (سيظهر في الفواتير):');
+        const name = await appPrompt('أدخل اسم المطعم (سيظهر في الفواتير):');
         if (!name) return;
         const result = await api.createCompany(name);
         if (!result.success) {
             alert('خطأ في إنشاء المطعم: ' + result.error);
             return;
         }
-        // إذا تم إرجاع كلمة مرور مؤقتة، ننبه المستخدم
         if (result.tempPassword) {
             alert(`تم إنشاء المطعم بنجاح.\nاسم المستخدم: admin\nكلمة المرور المؤقتة: ${result.tempPassword}\nيرجى تغييرها لاحقاً.`);
         }
@@ -67,11 +110,26 @@ async function showLoginScreen() {
         company = companies[0];
         showLoginForm(company);
     } else {
-        const list = companies.map(c => `${c.id}: ${c.name}`).join('\n');
-        const chosen = prompt(`اختر الشركة (أدخل الرقم):\n${list}`);
-        company = companies.find(c => c.id == chosen);
-        if (!company) return alert('اختيار خاطئ');
-        showLoginForm(company);
+        const options = companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        return new Promise((resolve) => {
+            document.getElementById('modal-content').innerHTML = `
+                <div style="text-align: center; padding: 10px;">
+                    <h3 style="margin-bottom: 20px;">اختر الشركة</h3>
+                    <select id="choose-company-select" style="padding:10px; width:100%; margin-bottom:15px;">
+                        ${options}
+                    </select>
+                    <button class="btn btn-primary" id="choose-company-btn" style="width:100%;">متابعة</button>
+                </div>
+            `;
+            document.getElementById('modal').classList.add('active');
+            document.getElementById('choose-company-btn').onclick = () => {
+                const chosen = document.getElementById('choose-company-select').value;
+                document.getElementById('modal').classList.remove('active');
+                company = companies.find(c => c.id == chosen);
+                showLoginForm(company);
+                resolve();
+            };
+        });
     }
 }
 
@@ -221,7 +279,10 @@ async function openShiftIfNeeded() {
     const shiftData = (openShift.success && openShift.data) ? openShift.data : null;
 
     if (!shiftData) {
-        const openingCash = parseFloat(prompt('أدخل رصيد افتتاح الصندوق (ر.س):') || '0');
+        const promptRes = await appPrompt('أدخل رصيد افتتاح الصندوق (ر.س):', 'number');
+        if (promptRes === null) return;
+        const openingCash = parseFloat(promptRes || '0');
+        
         const insertResult = await api.dbRun('INSERT INTO shifts (company_id, user_id, opening_cash, date, status) VALUES (?,?,?,?,?)',
             [currentCompany.id, currentUser.id, openingCash, today, 'open']);
         if (insertResult.success) {
@@ -432,7 +493,6 @@ function renderCart() {
 function removeFromCartPOS(index) { cart.splice(index, 1); renderCart(); }
 function clearCart() { cart = []; renderCart(); }
 
-// checkoutPOS المُحسَّنة (تستخدم القناة الجديدة checkoutOrder)
 async function checkoutPOS() {
     if (cart.length === 0) return alert('السلة فارغة');
     const tableId = document.getElementById('pos-table').value || null;
@@ -441,7 +501,6 @@ async function checkoutPOS() {
     const today = new Date().toISOString().slice(0,10);
     const time = new Date().toLocaleTimeString('ar-SA');
 
-    // تجهيز الأصناف مع الوصفة
     const items = [];
     for (let item of cart) {
         const productResult = await api.dbGet("SELECT recipe FROM products WHERE id=?", [item.id]);
@@ -504,8 +563,11 @@ async function printInvoice(orderId, items, total) {
 }
 
 async function closeShift() {
-    const actual = parseFloat(prompt('أدخل النقد الفعلي بالدرج:'));
+    const promptRes = await appPrompt('أدخل النقد الفعلي بالدرج:', 'number');
+    if (promptRes === null) return;
+    const actual = parseFloat(promptRes);
     if (isNaN(actual)) return;
+
     const diff = actual - totalSalesCash;
     const updateResult = await api.dbRun("UPDATE shifts SET closing_cash=?, status='closed' WHERE id=?", [actual, currentShift.id]);
     if (!updateResult.success) {
@@ -559,7 +621,7 @@ async function openProductModal(id = null) {
     const categories = categoriesResult.success ? categoriesResult.data : [];
     const materialsResult = await api.dbQuery("SELECT * FROM raw_materials WHERE company_id=?", [currentCompany.id]);
     const materials = materialsResult.success ? materialsResult.data : [];
-    cachedMaterials = materials; // تخزين للاستعمال في addRecipeRow
+    cachedMaterials = materials; 
 
     let prod = { name: '', price: '', category_id: '', recipe: '[]', barcode: '', image: '' };
     if (id) {
@@ -621,7 +683,6 @@ function previewImage(input) {
     }
 }
 
-// addRecipeRow المحسنة
 function addRecipeRow() {
     const container = document.getElementById('recipe-builder');
     if (!container) return;
@@ -809,8 +870,11 @@ async function deleteMaterial(id) {
     await switchTab('materials');
 }
 async function supplyMaterial(id) {
-    const qty = parseFloat(prompt('كمية التوريد:'));
+    const promptRes = await appPrompt('كمية التوريد:', 'number');
+    if (promptRes === null) return;
+    const qty = parseFloat(promptRes);
     if (isNaN(qty) || qty <= 0) return;
+    
     await api.dbRun('UPDATE raw_materials SET current_stock = current_stock + ? WHERE id=?', [qty, id]);
     await api.dbRun('INSERT INTO inventory_transactions (company_id, material_id, qty_change, type, reference, date) VALUES (?,?,?,?,?,?)',
         [currentCompany.id, id, qty, 'supply', 'توريد يدوي', new Date().toISOString().slice(0,10)]);
