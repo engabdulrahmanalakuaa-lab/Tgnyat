@@ -1,0 +1,56 @@
+name: Build & Release EXE (Offline Assets)
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: استنساخ المستودع
+        uses: actions/checkout@v4
+
+      - name: تثبيت Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: تثبيت حزم npm
+        run: |
+          if (Test-Path node_modules) { Remove-Item -Recurse -Force node_modules }
+          if (Test-Path package-lock.json) { Remove-Item -Force package-lock.json }
+          npm install --no-audit --no-fund --prefer-online
+
+      - name: إعادة بناء native modules
+        run: npx electron-builder install-app-deps
+
+      - name: تحميل Font Awesome (CSS + Webfonts)
+        run: |
+          New-Item -ItemType Directory -Force -Path assets\fontawesome\css, assets\fontawesome\webfonts
+          Invoke-WebRequest -Uri "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" -OutFile "assets\fontawesome\css\all.min.css"
+          Invoke-WebRequest -Uri "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/webfonts/fa-solid-900.woff2" -OutFile "assets\fontawesome\webfonts\fa-solid-900.woff2"
+          Invoke-WebRequest -Uri "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/webfonts/fa-solid-900.ttf" -OutFile "assets\fontawesome\webfonts\fa-solid-900.ttf"
+          # يمكنك إضافة المزيد من الخطوط إن أردت (fa-regular-400.woff2 إلخ)
+
+      - name: تحميل Chart.js
+        run: |
+          New-Item -ItemType Directory -Force -Path assets\chart.js
+          Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" -OutFile "assets\chart.js\chart.min.js"
+
+      - name: تحميل خط Tajawal
+        run: |
+          New-Item -ItemType Directory -Force -Path assets\tajawal
+          Invoke-WebRequest -Uri "https://github.com/google/fonts/raw/main/ofl/tajawal/Tajawal-Regular.ttf" -OutFile "assets\tajawal\Tajawal-Regular.ttf"
+          Invoke-WebRequest -Uri "https://github.com/google/fonts/raw/main/ofl/tajawal/Tajawal-Bold.ttf" -OutFile "assets\tajawal\Tajawal-Bold.ttf"
+
+      - name: بناء EXE
+        run: npm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: رفع EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: تقنيات-سوفت-مطاعم-Installer
+          path: dist/*.exe
